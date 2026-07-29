@@ -159,6 +159,7 @@ static esp32_can_obj_t esp32_can_obj = {
     .handle = NULL,
 };
 
+
 // INTERNAL Deinitialize can
 void can_deinit(const esp32_can_obj_t *self) {
     if (self->handle) {
@@ -334,7 +335,7 @@ static mp_obj_t esp32_can_init_helper(esp32_can_obj_t *self, size_t n_args, cons
 
     self->extframe = args[ARG_extframe].u_bool;
     if (args[ARG_auto_restart].u_bool) {
-        mp_raise_NotImplementedError("Auto-restart not supported");
+        mp_raise_NotImplementedError(MP_ERROR_TEXT("Auto-restart not supported"));
     }
     self->config->filter = f_config; // TWAI_FILTER_CONFIG_ACCEPT_ALL(); //
 
@@ -394,13 +395,13 @@ static mp_obj_t esp32_can_make_new(const mp_obj_type_t *type, size_t n_args, siz
     // check arguments
     mp_arg_check_num(n_args, n_kw, 1, MP_OBJ_FUN_ARGS_MAX, true);
     if (mp_obj_is_int(args[0]) != true) {
-        mp_raise_TypeError("bus must be a number");
+        mp_raise_TypeError(MP_ERROR_TEXT("bus must be a number"));
     }
 
     // work out port
     mp_uint_t can_idx = mp_obj_get_int(args[0]);
     if (can_idx > SOC_TWAI_CONTROLLER_NUM - 1) {
-        mp_raise_msg_varg(&mp_type_ValueError, "out of CAN controllers:%d", SOC_TWAI_CONTROLLER_NUM);
+        mp_raise_msg_varg(&mp_type_ValueError, MP_ERROR_TEXT("out of CAN controllers:%d"), SOC_TWAI_CONTROLLER_NUM);
     }
 
     esp32_can_obj_t *self = &esp32_can_obj;
@@ -430,7 +431,7 @@ static mp_obj_t esp32_can_make_new(const mp_obj_type_t *type, size_t n_args, siz
 static mp_obj_t esp32_can_init(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
     esp32_can_obj_t *self = MP_OBJ_TO_PTR(pos_args[0]);
     if (self->config->initialized) {
-        mp_raise_msg(&mp_type_RuntimeError, "Device is already initialized");
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("Device is already initialized"));
         return mp_const_none;
     }
     return esp32_can_init_helper(self, n_args - 1, pos_args + 1, kw_args);
@@ -441,7 +442,7 @@ static MP_DEFINE_CONST_FUN_OBJ_KW(esp32_can_init_obj, 4, esp32_can_init);
 static mp_obj_t esp32_can_deinit(const mp_obj_t self_in) {
     const esp32_can_obj_t *self = MP_OBJ_TO_PTR(self_in);
     if (self->config->initialized != true) {
-        mp_raise_msg(&mp_type_RuntimeError, "Device is not initialized");
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("Device is not initialized"));
         return mp_const_none;
     }
     can_deinit(self);
@@ -525,6 +526,12 @@ static mp_obj_t esp32_can_any(mp_obj_t self_in) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(esp32_can_any_obj, esp32_can_any);
 
+static mp_obj_t esp32_can_irq_recv(size_t n_args, const mp_obj_t *args) {
+    mp_raise_NotImplementedError(MP_ERROR_TEXT("irq_recv not implemented"));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(esp32_can_irq_recv_obj, 1, 2, esp32_can_irq_recv);
+
 // send([data], id, *, timeout=0, rtr=false, extframe=false)
 // CAN.send(identifier, data, flags=0, fifo_equal=True)
 static mp_obj_t esp32_can_send(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
@@ -549,7 +556,7 @@ static mp_obj_t esp32_can_send(size_t n_args, const mp_obj_t *pos_args, mp_map_t
     mp_obj_t *items;
     mp_obj_get_array(args[ARG_data].u_obj, &length, &items);
     if (length > CAN_MAX_DATA_FRAME) {
-        mp_raise_ValueError("CAN data field too long");
+        mp_raise_ValueError(MP_ERROR_TEXT("CAN data field too long"));
     }
     tx_msg.data_length_code = length;
     tx_msg.flags = (args[ARG_rtr].u_bool ? TWAI_MSG_FLAG_RTR : TWAI_MSG_FLAG_NONE);
@@ -607,7 +614,7 @@ static mp_obj_t esp32_can_send(size_t n_args, const mp_obj_t *pos_args, mp_map_t
 
         return mp_const_none;
     } else {
-        mp_raise_msg(&mp_type_RuntimeError, "Device is not ready");
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("Device is not ready"));
     }
 }
 static MP_DEFINE_CONST_FUN_OBJ_KW(esp32_can_send_obj, 3, esp32_can_send);
@@ -695,107 +702,105 @@ static MP_DEFINE_CONST_FUN_OBJ_1(esp32_can_clearfilter_obj, esp32_can_clearfilte
 // Set CAN HW filter
 // CAN.set_filters(filters)
 static mp_obj_t esp32_can_set_filters(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
-    enum { ARG_bank, ARG_mode, ARG_params, ARG_rtr, ARG_extframe };
-    static const mp_arg_t allowed_args[] = {
-        { MP_QSTR_bank,     MP_ARG_REQUIRED | MP_ARG_INT, {.u_int = 0} },
-        { MP_QSTR_mode,     MP_ARG_REQUIRED | MP_ARG_INT, {.u_int = 0} },
-        { MP_QSTR_params,   MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
-        { MP_QSTR_rtr,      MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_bool = false} },
-        { MP_QSTR_extframe, MP_ARG_BOOL,                  {.u_bool = false} },
-    };
+   enum { ARG_bank, ARG_mode, ARG_params, ARG_rtr, ARG_extframe };
+   static const mp_arg_t allowed_args[] = {
+       { MP_QSTR_bank,     MP_ARG_REQUIRED | MP_ARG_INT, {.u_int = 0} },
+       { MP_QSTR_mode,     MP_ARG_REQUIRED | MP_ARG_INT, {.u_int = 0} },
+       { MP_QSTR_params,   MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+       { MP_QSTR_rtr,      MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_bool = false} },
+       { MP_QSTR_extframe, MP_ARG_BOOL,                  {.u_bool = false} },
+   };
 
-    // parse args
-    esp32_can_obj_t *self = MP_OBJ_TO_PTR(pos_args[0]);
-    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
-    mp_arg_parse_all(n_args - 1, pos_args + 1, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
-    const int can_idx = args[ARG_bank].u_int;
+   // parse args
+   esp32_can_obj_t *self = MP_OBJ_TO_PTR(pos_args[0]);
+   mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+   mp_arg_parse_all(n_args - 1, pos_args + 1, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+   const int can_idx = args[ARG_bank].u_int;
 
-    if (can_idx != 0) {
-        mp_raise_msg_varg(&mp_type_ValueError, "Bank (%d) doesn't exist", can_idx);
-    }
+   if (can_idx != 0) {
+       mp_raise_msg_varg(&mp_type_ValueError, MP_ERROR_TEXT("Bank (%d) doesn't exist"), can_idx);
+   }
 
-    size_t len;
-    mp_obj_t *params;
-    mp_obj_get_array(args[ARG_params].u_obj, &len, &params);
-    const int mode = args[ARG_mode].u_int;
+   size_t len;
+   mp_obj_t *params;
+   mp_obj_get_array(args[ARG_params].u_obj, &len, &params);
+   const int mode = args[ARG_mode].u_int;
 
-    uint32_t id = mp_obj_get_int(params[0]);
-    uint32_t mask = mp_obj_get_int(params[1]); // FIXME: Overflow in case 0xFFFFFFFF for mask
-    if (mode == FILTER_RAW_SINGLE || mode == FILTER_RAW_DUAL) {
-        if (len != 2) {
-            mp_raise_ValueError("params must be a 2-values list");
-        }
-        self->config->filter.single_filter = (mode == FILTER_RAW_SINGLE);
-        self->config->filter.acceptance_code = id;
-        self->config->filter.acceptance_mask = mask;
-    } else {
-        self->config->filter.single_filter = self->extframe;
-        // esp32_can_set_filters(self, id, mask, args[ARG_bank].u_int, args[ARG_rtr].u_int);
-        // Check if bank is allowed
-        int bank = 0;
-        if (bank > ((self->extframe && self->config->filter.single_filter) ? 0 : 1)) {
-            mp_raise_ValueError("CAN filter parameter error");
-        }
-        uint32_t preserve_mask;
-        int addr = 0;
-        int rtr = 0;
-        if (self->extframe) {
-            addr = (addr & 0x1FFFFFFF) << 3 | (rtr ? 0x04 : 0);
-            mask = (mask & 0x1FFFFFFF) << 3 | 0x03;
-            preserve_mask = 0;
-        } else if (self->config->filter.single_filter) {
-            addr = (((addr & 0x7FF) << 5) | (rtr ? 0x10 : 0));
-            mask = ((mask & 0x7FF) << 5);
-            mask |= 0xFFFFF000;
-            preserve_mask = 0;
-        } else {
-            addr = (((addr & 0x7FF) << 5) | (rtr ? 0x10 : 0));
-            mask = ((mask & 0x7FF) << 5);
-            preserve_mask = 0xFFFF << (bank == 0 ? 16 : 0);
-            if ((self->config->filter.acceptance_mask & preserve_mask) == (0xFFFF << (bank == 0 ? 16 : 0))) {
-                // Other filter accepts all; it will replaced duplicating current filter
-                addr = addr | (addr << 16);
-                mask = mask | (mask << 16);
-                preserve_mask = 0;
-            } else {
-                addr = addr << (bank == 1 ? 16 : 0);
-                mask = mask << (bank == 1 ? 16 : 0);
-            }
-        }
-        self->config->filter.acceptance_code &= preserve_mask;
-        self->config->filter.acceptance_code |= addr;
-        self->config->filter.acceptance_mask &= preserve_mask;
-        self->config->filter.acceptance_mask |= mask;
-    }
-    // Apply filter
-    if (self->handle) {
-        check_esp_err(twai_stop_v2(self->handle));
-        check_esp_err(twai_driver_uninstall_v2(self->handle));
-    }
-    check_esp_err(twai_driver_install_v2(
-        &self->config->general,
-        &self->config->timing,
-        &self->config->filter,
-        &self->handle
-        ));
-    check_esp_err(twai_start_v2(self->handle));
-    return mp_const_none;
+     /* Use mp_obj_get_int_truncated to safely convert Python integers to
+   a fixed-width unsigned 32-bit value. This avoids signed overflow/truncation
+   when the Python int is larger than MP_INT_MAX (e.g. 0xFFFFFFFF). */
+   // uint32_t id = mp_obj_get_int(params[0]);
+   // uint32_t mask = mp_obj_get_int(params[1]); // FIXME: Overflow in case 0xFFFFFFFF for mask
+   uint32_t id = (uint32_t)mp_obj_get_int_truncated(params[0]);
+   uint32_t mask = (uint32_t)mp_obj_get_int_truncated(params[1]);
+
+   if (mode == FILTER_RAW_SINGLE || mode == FILTER_RAW_DUAL) {
+       if (len != 2) {
+           mp_raise_ValueError(MP_ERROR_TEXT("params must be a 2-values list"));
+       }
+       self->config->filter.single_filter = (mode == FILTER_RAW_SINGLE);
+       self->config->filter.acceptance_code = id;
+       self->config->filter.acceptance_mask = mask;
+   } else {
+       self->config->filter.single_filter = self->extframe;
+       // esp32_can_set_filters(self, id, mask, args[ARG_bank].u_int, args[ARG_rtr].u_int);
+       // Check if bank is allowed
+       // int bank = 0;
+       int bank = args[ARG_bank].u_int; // parsed bank argument
+       if (bank > ((self->extframe && self->config->filter.single_filter) ? 0 : 1)) {
+           mp_raise_ValueError(MP_ERROR_TEXT("CAN filter parameter error"));
+       }
+       uint32_t preserve_mask;
+       // int addr = 0;
+       // int rtr = 0;
+       uint32_t addr = (uint32_t)id;
+       int rtr = args[ARG_rtr].u_bool ? 1 : 0;
+       if (self->extframe) {
+           // addr = (addr & 0x1FFFFFFF) << 3 | (rtr ? 0x04 : 0);
+           // mask = (mask & 0x1FFFFFFF) << 3 | 0x03;
+           addr = ((addr & 0x1FFFFFFF) << 3) | (rtr ? 0x04 : 0);
+           mask = ((mask & 0x1FFFFFFF) << 3) | 0x03;
+           preserve_mask = 0;
+       } else if (self->config->filter.single_filter) {
+           addr = (((addr & 0x7FF) << 5) | (rtr ? 0x10 : 0));
+           mask = ((mask & 0x7FF) << 5);
+           mask |= 0xFFFFF000;
+           preserve_mask = 0;
+       } else {
+           addr = (((addr & 0x7FF) << 5) | (rtr ? 0x10 : 0));
+           mask = ((mask & 0x7FF) << 5);
+           // preserve_mask = 0xFFFF << (bank == 0 ? 16 : 0);
+           preserve_mask = 0xFFFFu << (bank == 0 ? 16 : 0);
+           if ((self->config->filter.acceptance_mask & preserve_mask) == (0xFFFF << (bank == 0 ? 16 : 0))) {
+               // Other filter accepts all; it will replaced duplicating current filter
+               addr = addr | (addr << 16);
+               mask = mask | (mask << 16);
+               preserve_mask = 0;
+           } else {
+               addr = addr << (bank == 1 ? 16 : 0);
+               mask = mask << (bank == 1 ? 16 : 0);
+           }
+       }
+       self->config->filter.acceptance_code &= preserve_mask;
+       self->config->filter.acceptance_code |= addr;
+       self->config->filter.acceptance_mask &= preserve_mask;
+       self->config->filter.acceptance_mask |= mask;
+   }
+   // Apply filter
+   if (self->handle) {
+       check_esp_err(twai_stop_v2(self->handle));
+       check_esp_err(twai_driver_uninstall_v2(self->handle));
+   }
+   check_esp_err(twai_driver_install_v2(
+       &self->config->general,
+       &self->config->timing,
+       &self->config->filter,
+       &self->handle
+       ));
+   check_esp_err(twai_start_v2(self->handle));
+   return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_KW(esp32_can_set_filters_obj, 1, esp32_can_set_filters);
-
-// CAN.irq_recv(callback, hard=False)
-static mp_obj_t esp32_can_irq_recv(mp_obj_t self_in, mp_obj_t callback_in) {
-    esp32_can_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (callback_in == mp_const_none) {
-        // disable callback
-        self->rx_callback = mp_const_none;
-    } else if (mp_obj_is_callable(callback_in)) {
-        // set up interrupt
-        self->rx_callback = callback_in;
-    }
-    return mp_const_none;
-}
-static MP_DEFINE_CONST_FUN_OBJ_2(esp32_can_irq_recv_obj, esp32_can_irq_recv);
 
 // CAN.irq_send(callback, hard=False)
 static mp_obj_t esp32_can_irq_send(mp_obj_t self_in, mp_obj_t callback_in) {
@@ -964,4 +969,3 @@ MP_DEFINE_CONST_OBJ_TYPE(
     );
 
 MP_REGISTER_MODULE(MP_QSTR_CAN, machine_can_type);
-
