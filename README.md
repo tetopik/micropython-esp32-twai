@@ -5,7 +5,7 @@ Use user_module, that draft probe. But works.
 From:
 https://github.com/micropython/micropython/pull/12331
 
-## DIY use scr_can_v2
+## DIY use scr
 
 Read this section if you want to include the ESP32 TWAI/CAN support to MicroPython from scratch. To do that follow these steps:
   
@@ -18,7 +18,7 @@ Read this section if you want to include the ESP32 TWAI/CAN support to MicroPyth
   
 2. Clone this repository:
     ```bash
-    git clone https://github.com/vostraga/micropython-esp32-twai.git
+    git clone https://github.com/tetopik/micropython-esp32-twai
     ```
     Copy the files and folders inside the root folder where `micropython`.
 
@@ -31,8 +31,7 @@ Read this section if you want to include the ESP32 TWAI/CAN support to MicroPyth
     │
     └── cmodules/
         └── micropython-esp32-twai/
-            ├── src/       # First version of CAN module
-            └── src_can_v2/  # Second version with improvements
+            └── src
     ```
 
 ## Build
@@ -88,7 +87,7 @@ make submodules
 For example, to build for ESP32-S3 with octal PSRAM (go to **build point**):
 
 ```bash
-idf.py -D MICROPY_BOARD=ESP32_GENERIC_S3 -D MICROPY_BOARD_VARIANT=SPIRAM_OCT -D USER_C_MODULES="../../../../cmodules/micropython-esp32-twai/src_can_v2/micropython.cmake" -B build_ESP32_GENERIC_S3_SPIRAM_OCT build
+idf.py -D MICROPY_BOARD=ESP32_GENERIC_S3 -D MICROPY_BOARD_VARIANT=SPIRAM_OCT -D USER_C_MODULES="../../../../cmodules/micropython-esp32-twai/src/micropython.cmake" -B build_ESP32_GENERIC_S3_SPIRAM_OCT build
 ```
 
 ## Usage Example
